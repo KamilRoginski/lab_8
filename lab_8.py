@@ -53,16 +53,19 @@ users = {}
 # Password complexity validator (NIST SP 800-63B + existing rules)
 # --------------------------------------------------
 def validate_password(pw):
-    # Example: minimum length 8, at least one digit, one uppercase, one special
+    # Example: minimum length 8, at least one digit, one uppercase, one special,
+    # Not in CommonPassword.txt
+    if pw in load_common_passwords():
+        return 'Password too common. Please choose a different one.'
     if len(pw) < 8:
         return False
-    if not re.search(r"[A-Z]", pw):
+    if not re.search(r'[A-Z]', pw):
         return False
-    if not re.search(r"[a-z]", pw):
+    if not re.search(r'[a-z]', pw):
         return False
-    if not re.search(r"\d", pw):
+    if not re.search(r'\d', pw):
         return False
-    if not re.search(r"[^A-Za-z0-9]", pw):
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', pw):
         return False
     return True
 
