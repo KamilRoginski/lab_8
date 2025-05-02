@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Welcome to My Flask Site</h1>
+<h2>Today's Highlights</h2>
+<h3>Current Date and Time</h3>
+<p>Below is the current server date and time:</p>
+<p><strong>{{ now.strftime('%Y-%m-%d %H:%M:%S') }}</strong></p>
+
+<ol>
+  <li>Learn to play Tennis</li>
+  <ul><li>How to use a racket</li></ul>
+  <li>Learn to play Baseball</li>
+  <ul><li>How to swing a bat</li></ul>
+  <li>Learn to play Soccer</li>
+  <ul><li>Proper kick form</li></ul>
+  <li>Learn to play Basketball</li>
+  <ul><li>How to shoot a free throw</li></ul>
+</ol>
+
+<h2>Gallery</h2>
+<img src="{{ url_for('static', filename='images/tennisball.png') }}" alt="Tennisball" width="150">
+<img src="{{ url_for('static', filename='images/baseball.jpg') }}" alt="Baseball" width="150">
+<img src="{{ url_for('static', filename='images/soccerball.avif') }}" alt="Soccer ball" width="150">
+<img src="{{ url_for('static', filename='images/basketball.jpg') }}" alt="Basketball" width="150">
+
+<h2>Data Table</h2>
+<table>
+  <tr><th>Product</th><th>Price</th><th>Stock</th></tr>
+  <tr><td>Tennis Ball </td><td>$10</td><td>100</td></tr>
+  <tr><td>Baseball </td><td>$15</td><td>50</td></tr>
+  <tr><td>Soccer ball </td><td>$20</td><td>75</td></tr>
+  <tr><td>Basketball </td><td>$25</td><td>20</td></tr>
+</table>
+
+<p>Check out these resources:</p>
+<ul>
+  <li><a href="https://www.masterclass.com/articles/how-to-play-tennis">Learn to play Tennis</a></li>
+  <li><a href="https://youtini.com/article/the-complete-beginners-guide-to-major-league-baseball">Learn to play Baseball</a></li>
+  <li><a href="https://www.soccer.com/guide/how-to-play-soccer-guide-for-beginners">Learn to play Soccer</a></li>
+  <li><a href="https://achievesports.com/basketball-fundamentals-a-beginners-guide-to-the-game/">Learn to play Basketball</a></li>
+</ul>
+
+{% endblock %}
