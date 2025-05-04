@@ -1,10 +1,10 @@
 #Name: Kamil Roginski
-#Date: 2 MAY 2025
+#Date: 4 MAY 2025
 #Professor: Mark Babcock
 #Course: CYOP 300
 
 """
-Lab 8: Extend Flask application to add password update form, NIST SP 800-63B checks,
+Lab 8: Extends lab_7 Flask application to add password update form,
 common-password blocking, and logging of failed login attempts.
 """
 
@@ -17,11 +17,11 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'dev_secret')
+app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
 
-# --------------------------------------------------
-# Configure failed-login logger
-# --------------------------------------------------
+"""
+Configure failed-login logger
+"""
 login_logger = logging.getLogger('failed_logins')
 login_logger.setLevel(logging.WARNING)
 fh = logging.FileHandler('failed_logins.log')
@@ -29,10 +29,10 @@ formatter = logging.Formatter('%(asctime)s - %(message)s')
 fh.setFormatter(formatter)
 login_logger.addHandler(fh)
 
-# --------------------------------------------------
-# Load common passwords list
-# --------------------------------------------------
 def load_common_passwords(filename='CommonPasswords.txt', folder = 'static'):
+    """
+    Opens and reads from CommonPasswords.txt
+    """
     path = os.path.join(app.root_path, folder, filename)
     try:
         with open(path, 'r') as f:
@@ -43,81 +43,39 @@ def load_common_passwords(filename='CommonPasswords.txt', folder = 'static'):
 
 common_passwords = load_common_passwords()
 
-# --------------------------------------------------
-# In-memory user store (for demo purposes)
-# --------------------------------------------------
-# users = { username: {'password': hashed_pw, ...} }
+
 users = {}
 
-# --------------------------------------------------
-# Password complexity validator (NIST SP 800-63B + existing rules)
-# --------------------------------------------------
-def validate_password(pw):
-    # Example: minimum length 8, at least one digit, one uppercase, one special,
-    # Not in CommonPassword.txt
+# In-memory user store: {username: password_hash}
+
+def password_complexity(pw):
+    """
+    Example: minimum length 8, at least one digit, one uppercase,
+    one lowercase, and one special character.
+    Not in CommonPassword.txt
+    """
     if pw in load_common_passwords():
         return 'Password too common. Please choose a different one.'
     if len(pw) < 8:
+        flash('Password must be at least 8 characters long.')
         return False
     if not re.search(r'[A-Z]', pw):
+        flash('Password must include at least one uppercase letter.')
         return False
     if not re.search(r'[a-z]', pw):
+        flash('Password must include at least one lowercase letter.')
         return False
     if not re.search(r'\d', pw):
+        flash('Password must include at least one digit.')
         return False
     if not re.search(r'[!@#$%^&*(),.?":{}|<>]', pw):
+        flash('Password must include at least one special character.')
         return False
     return True
 
-# Existing route definitions...
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        # reuse validate_password
-        if not validate_password(password):
-            flash('Password does not meet complexity requirements.')
-            return render_template('register.html')
-        # Check common passwords
-        if password in common_passwords:
-            flash('Password too common; choose a different one.')
-            return render_template('register.html')
-        # Store hashed password
-        hashed = generate_password_hash(password)
-        users[username] = {'password': hashed, 'created': dt.utcnow()}
-        flash('Registration successful. Please log in.')
-        return redirect(url_for('login'))
-    return render_template('register.html')
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        user = users.get(username)
-        if user and check_password_hash(user['password'], password):
-            session['username'] = username
-            next_page = request.args.get('next')
-            return redirect(next_page or url_for('home'))
-        # Log failed attempt
-        ip = request.remote_addr
-        login_logger.warning(f"Failed login attempt for user '{username}' from IP: {ip}")
-        flash('Invalid username or password.')
-    return render_template('login.html')
-
-@app.route('/logout')
-def logout():
-    session.pop('username', None)
-    flash('You have been logged out.')
-    return redirect(url_for('login'))
-
-# --------------------------------------------------
-# New: Password Update Route
-# --------------------------------------------------
 @app.route('/update_password', methods=['GET', 'POST'])
 def update_password():
+    """Update the password for the current user while following password complexity rules."""
     if 'username' not in session:
         flash('You must be logged in to update your password.')
         return redirect(url_for('login'))
@@ -136,7 +94,7 @@ def update_password():
             flash('Current password is incorrect.')
             return render_template('update_password.html')
         # Validate new password criteria
-        if not validate_password(new):
+        if not password_complexity(new):
             flash('New password does not meet complexity requirements.')
             return render_template('update_password.html')
         # Check against common passwords
@@ -154,10 +112,10 @@ def update_password():
 
     return render_template('update_password.html')
 
-# --------------------------------------------------
-# Protected home
-# --------------------------------------------------
 def login_required(f):
+    """
+    Decorator that redirects to login if no user is currently authenticated.
+    """
     @wraps(f)
     def decorated(*args, **kwargs):
         if 'username' not in session:
@@ -168,19 +126,76 @@ def login_required(f):
 @app.route('/')
 @login_required
 def home():
+    """
+    Render the home page showing the current date and time to a logged-in user.
+    """
     now = dt.now()
     return render_template('home.html', now=now)
 
 @app.route('/about')
 def about():
+    """
+    Render the about page for authenticated users.
+    """
     return render_template('about.html')
 
 @app.route('/contact')
 def contact():
+    """
+    Render the contact page for authenticated users.
+    """
     return render_template('contact.html')
 
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    """
+    Handle user sign-up by validating inputs, storing a hashed password, and flashing status.
+    """
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        # reuse password_complexity()
+        if not password_complexity(password):
+            flash('Password does not meet complexity requirements.')
+            return render_template('register.html')
+        # Check common passwords
+        if password in common_passwords:
+            flash('Password too common; choose a different one.')
+            return render_template('register.html')
+        # Store hashed password
+        hashed = generate_password_hash(password)
+        users[username] = {'password': hashed, 'created': dt.utcnow()}
+        flash('Registration successful. Please log in.')
+        return redirect(url_for('login'))
+    return render_template('register.html')
 
-# ... other routes (about, contact, etc.) remain unchanged
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """
+    Authenticate a user by verifying their credentials and starting a session.
+    """
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        user = users.get(username)
+        if user and check_password_hash(user['password'], password):
+            session['username'] = username
+            next_page = request.args.get('next')
+            return redirect(next_page or url_for('home'))
+        # Log failed attempt
+        ip = request.remote_addr
+        login_logger.warning(f"Failed login attempt for user '{username}' from IP: {ip}")
+        flash('Invalid username or password.')
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    """
+    Log out the current user by clearing their session and redirecting to login.
+    """
+    session.pop('username', None)
+    flash('You have been logged out.')
+    return redirect(url_for('login'))
 
 if __name__ == '__main__':
     app.run(debug=True)
